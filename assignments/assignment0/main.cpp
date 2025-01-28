@@ -10,10 +10,20 @@
 #include <ew/shader.h>
 #include <ew/model.h>
 #include <ew/camera.h>
+#include <ew/transform.h>
+#include <ew/cameraController.h>
+#include <ew/texture.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
+void resetCamera(ew::Camera* camera, ew::CameraController* controller);
+
+//Creating a camera for us to view our model
+ew::Camera camera;
+
+ew::Transform monkeyTransform;
+ew::CameraController cameraController;
 
 //Global state
 int screenWidth = 1080;
@@ -29,9 +39,9 @@ int main() {
 	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	//Loading a 3D model for us to render
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
+	//Handles to OpenGL object are unsigned integers
+	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 
-	//Creating a camera for us to view our model
-	ew::Camera camera;
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);  //Look at the center of the scene
 	camera.aspectRatio = (float)screenWidth / screenHeight;  //Should be updated every frame or in framebufferSizeCallback to keep the aspect ratio correct after resizing the window
@@ -49,14 +59,25 @@ int main() {
 		deltaTime = time - prevFrameTime;
 		prevFrameTime = time;
 
+		cameraController.move(window, &camera, deltaTime);
+
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
 		//Clears backbuffer color and depth values
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		//Rotate model around Y axis
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+
+		//Bind brick texture to texture unit 0
+		glBindTextureUnit(0, brickTexture);
+
 		//Set shader uniforms and draw
 		shader.use();
-		shader.setMat4("_Model", glm::mat4(1.0f));
+		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
+		shader.setInt("_MainTex", 0);
+		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
+		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		monkeyModel.draw();  //Draws monkey model using current shader
 
@@ -73,7 +94,9 @@ void drawUI() {
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
-	ImGui::Text("Add Controls Here!");
+	if (ImGui::Button("Reset Camera")) {
+		resetCamera(&camera, &cameraController);
+	}
 	ImGui::End();
 
 	ImGui::Render();
@@ -122,3 +145,9 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 	return window;
 }
 
+void resetCamera(ew::Camera* camera, ew::CameraController* controller)
+{
+	camera->position = glm::vec3(0, 0, 5.0f);
+	camera->target = glm::vec3(0);
+	controller->yaw = controller->pitch = 0;
+}
