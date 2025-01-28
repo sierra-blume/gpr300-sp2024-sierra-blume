@@ -31,6 +31,13 @@ int screenHeight = 720;
 float prevFrameTime;
 float deltaTime;
 
+struct Material {
+	float Ka = 1.0;
+	float Kd = 0.5;
+	float Ks = 0.5;
+	float Shininess = 128;
+}material;
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
@@ -74,11 +81,17 @@ int main() {
 
 		//Set shader uniforms and draw
 		shader.use();
+		shader.setVec3("_EyePos", camera.position);
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 		shader.setInt("_MainTex", 0);
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		shader.setFloat("_Material.Ka", material.Ka);
+		shader.setFloat("_Material.Kd", material.Kd);
+		shader.setFloat("_Material.Ks", material.Ks);
+		shader.setFloat("_Material.Shininess", material.Shininess);
+
 		monkeyModel.draw();  //Draws monkey model using current shader
 
 		drawUI();
@@ -96,6 +109,12 @@ void drawUI() {
 	ImGui::Begin("Settings");
 	if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
+	}
+	if (ImGui::CollapsingHeader("Material")) {
+		ImGui::SliderFloat("AmbientK", &material.Ka, 0.0f, 1.0f);
+		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
+		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
+		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
 	ImGui::End();
 
