@@ -54,6 +54,22 @@ int main() {
 	camera.aspectRatio = (float)screenWidth / screenHeight;  //Should be updated every frame or in framebufferSizeCallback to keep the aspect ratio correct after resizing the window
 	camera.fov = 60.0f;  //Vertical field of view, in degrees
 
+	//Buffer to hold the depth map, which is the depth texture as rendered from the light's perspective
+	unsigned int depthMapFBO;
+	glGenFramebuffers(1, &depthMapFBO);
+
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+
+	//2D texture to be used as framebuffer's depth buffer
+	unsigned int depthMap;
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); //***********//
+
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);  //Back face culling
@@ -107,6 +123,14 @@ void drawUI() {
 	ImGui::NewFrame();
 
 	ImGui::Begin("Settings");
+	if (ImGui::CollapsingHeader("Directional Light"))
+	{
+		if (ImGui::Button("Reset Light")) {
+			//resetCamera(&camera, &cameraController);
+		}
+		//MAKE VARIABLES FOR DIRECTIONAL LIGHT//
+		//ImGui::SliderFloat("Light    ");
+	}
 	if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
 	}
@@ -116,6 +140,17 @@ void drawUI() {
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
+	ImGui::End();
+
+	ImGui::Begin("Shadow Map");
+	//Using a Child allow to fill all the space of the window
+	ImGui::BeginChild("Shadow Map");
+	//Stretch image to be window size
+	ImVec2 windowSize = ImGui::GetWindowSize();
+	//Invert 0-1 V to flip vertically for ImGui display
+	//shadowMap is the texture2D handle
+	//ImGui::Image((ImTextureID)shadowMap,  windowSize, ImVec2(0, 1), ImVec2(1,0));
+	ImGui::EndChild();
 	ImGui::End();
 
 	ImGui::Render();
