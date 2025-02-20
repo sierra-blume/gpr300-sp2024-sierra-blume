@@ -70,6 +70,26 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); //***********//
 
+	//Attach the generated depth texture as the framebuffer's depth buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	//Only need dpeth info from the lights pov so don't need a color buffer, but opengl needs one for the framebuffer to be complete
+	//So, we specify that we aren't going to read or write to it
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	//Orthogragphic projection matrix for the directional light source
+	float near_plane = 1.0f, far_plane = 7.5f;
+	glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+
+	//Create a view matrix to transform each object so they're cisible from the light's pov
+	glm::mat4 lightView = glm::lookAt(glm::vec3(-2.0f, 4.0f, -1.0f),
+									  glm::vec3( 0.0f, 0.0f,  0.0f),
+									  glm::vec3( 0.0f, 1.0f,  0.0f));
+
+	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);  //Back face culling
@@ -83,6 +103,21 @@ int main() {
 		prevFrameTime = time;
 
 		cameraController.move(window, &camera, deltaTime);
+
+		//1. first render to depth map
+		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+		glClear(GL_DEPTH_BUFFER_BIT);
+		//ConfigureShaderAndMatrices();
+		//RenderScene();
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		//2. then render scene as normal with shadow mapping (using depth map)
+		glViewport(0, 0, screenWidth, screenHeight);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//ConfigureShaderAndMatrices();
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		//RenderScene();
 
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
