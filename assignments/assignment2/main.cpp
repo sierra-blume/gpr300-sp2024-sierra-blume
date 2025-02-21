@@ -26,6 +26,10 @@ ew::Camera camera;
 ew::Transform monkeyTransform;
 ew::CameraController cameraController;
 
+unsigned int planeVAO;
+
+unsigned int depthMap;
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -40,8 +44,39 @@ struct Material {
 }material;
 
 int main() {
-	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+
+	//Setting some global OpenGL variables
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);  //Back face culling
+	glEnable(GL_DEPTH_TEST);  //Depth testing
+
+	float planeVertices[] = {
+		// positions           // normals        // texcoords
+		 25.0f, -0.5f,  25.0f, 0.0f, 1.0f, 0.0f, 25.0f,  0.0f,
+		-25.0f, -0.5f,  25.0f, 0.0f, 1.0f, 0.0f,  0.0f,  0.0f,
+		-25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f,  0.0f, 25.0f,
+
+		 25.0f, -0.5f,  25.0f, 0.0f, 1.0f, 0.0f, 25.0f,  0.0f,
+		-25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f,  0.0f, 25.0f,
+		 25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f, 25.0f, 25.0f,
+	};
+
+	//plane VAO
+	unsigned int planeVBO;
+	glGenVertexArrays(1, &planeVAO);
+	glGenBuffers(1, &planeVBO);
+	glBindVertexArray(planeVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glBindVertexArray(0);
 
 	//Making a shader with the shader files in the assets folder
 	ew::Shader litShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
@@ -50,6 +85,7 @@ int main() {
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	//Handles to OpenGL object are unsigned integers
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
+	GLuint tileTexture = ew::loadTexture("assets/Tiles.png");
 
 	camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
 	camera.target = glm::vec3(0.0f, 0.0f, 0.0f);  //Look at the center of the scene
@@ -63,7 +99,6 @@ int main() {
 	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 	//2D texture to be used as framebuffer's depth buffer
-	unsigned int depthMap;
 	glGenTextures(1, &depthMap);
 	glBindTexture(GL_TEXTURE_2D, depthMap);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -81,21 +116,7 @@ int main() {
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	//Orthogragphic projection matrix for the directional light source
-	float near_plane = 1.0f, far_plane = 7.5f;
-	glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-
-	//Create a view matrix to transform each object so they're cisible from the light's pov
-	glm::mat4 lightView = glm::lookAt(glm::vec3(-2.0f, 4.0f, -1.0f),
-									  glm::vec3( 0.0f, 0.0f,  0.0f),
-									  glm::vec3( 0.0f, 1.0f,  0.0f));
-
-	glm::mat4 lightSpaceMatrix = lightProjection * lightView;
-
-	//Setting some global OpenGL variables
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);  //Back face culling
-	glEnable(GL_DEPTH_TEST);  //Depth testing
+	glm::vec3 lightPos(-2.0f, 4.0f, -1.0f);
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -106,40 +127,49 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
-		depthShader.use();
-		//glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+		//Orthogragphic projection matrix for the directional light source
+		float near_plane = 1.0f, far_plane = 7.5f;
+		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
 
-		//1. first render to depth map
+		//Create a view matrix to transform each object so they're visible from the light's pov
+		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
+		//Render scene from light's pov
+		depthShader.use();
+		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		
-		//RenderScene(depthShader);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tileTexture);
+		RenderScene(depthShader);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-		//2. then render scene as normal with shadow mapping (using depth map)
+		//Reset viewport
 		glViewport(0, 0, screenWidth, screenHeight);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		//ConfigureShaderAndMatrices();
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-		//RenderScene();
-
+		
 		//RENDER
-		glClearColor(0.6f,0.8f,0.92f,1.0f);
+		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		//Clears backbuffer color and depth values
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 
 		//Rotate model around Y axis
 		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
 
 		//Bind brick texture to texture unit 0
-		glBindTextureUnit(0, brickTexture);
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, brickTexture);
 
 		//Set shader uniforms and draw
 		litShader.use();
 		litShader.setVec3("_EyePos", camera.position);
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
-		litShader.setInt("_MainTex", 0);
+		litShader.setInt("_MainTex", 1);
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
 		litShader.setMat4("_Model", monkeyTransform.modelMatrix());
 		litShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
@@ -154,13 +184,19 @@ int main() {
 
 		glfwSwapBuffers(window);
 	}
+	glDeleteVertexArrays(1, &planeVAO);
+	glDeleteBuffers(1, &planeVBO);
+
 	printf("Shutting down...");
 }
 
 void RenderScene(ew::Shader shader)
 {
 	//call all relevant drawing functions and set the corresponding model matrices where necessary
-
+	glm::mat4 model = glm::mat4(1.0f);
+	shader.setMat4("model", model);
+	glBindVertexArray(planeVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void drawUI() {
@@ -195,7 +231,7 @@ void drawUI() {
 	ImVec2 windowSize = ImGui::GetWindowSize();
 	//Invert 0-1 V to flip vertically for ImGui display
 	//shadowMap is the texture2D handle
-	//ImGui::Image((ImTextureID)shadowMap,  windowSize, ImVec2(0, 1), ImVec2(1,0));
+	ImGui::Image((ImTextureID)depthMap,  windowSize, ImVec2(0, 1), ImVec2(1,0));
 	ImGui::EndChild();
 	ImGui::End();
 
