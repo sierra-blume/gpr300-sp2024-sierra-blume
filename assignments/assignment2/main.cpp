@@ -18,6 +18,7 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
+void RenderScene(ew::Shader shader);
 
 //Creating a camera for us to view our model
 ew::Camera camera;
@@ -43,7 +44,8 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//Making a shader with the shader files in the assets folder
-	ew::Shader shader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader litShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
+	ew::Shader depthShader = ew::Shader("assets/depth.vert", "assets/depth.frag");
 	//Loading a 3D model for us to render
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	//Handles to OpenGL object are unsigned integers
@@ -68,12 +70,12 @@ int main() {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); //***********//
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	//Attach the generated depth texture as the framebuffer's depth buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
-	//Only need dpeth info from the lights pov so don't need a color buffer, but opengl needs one for the framebuffer to be complete
+	//Only need depth info from the lights pov so don't need a color buffer, but opengl needs one for the framebuffer to be complete
 	//So, we specify that we aren't going to read or write to it
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
@@ -104,12 +106,15 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
+		depthShader.use();
+		//glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
 		//1. first render to depth map
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		//ConfigureShaderAndMatrices();
-		//RenderScene();
+		
+		//RenderScene(depthShader);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 		//2. then render scene as normal with shadow mapping (using depth map)
@@ -131,17 +136,17 @@ int main() {
 		glBindTextureUnit(0, brickTexture);
 
 		//Set shader uniforms and draw
-		shader.use();
-		shader.setVec3("_EyePos", camera.position);
+		litShader.use();
+		litShader.setVec3("_EyePos", camera.position);
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
-		shader.setInt("_MainTex", 0);
+		litShader.setInt("_MainTex", 0);
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
-		shader.setMat4("_Model", monkeyTransform.modelMatrix());
-		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
-		shader.setFloat("_Material.Ka", material.Ka);
-		shader.setFloat("_Material.Kd", material.Kd);
-		shader.setFloat("_Material.Ks", material.Ks);
-		shader.setFloat("_Material.Shininess", material.Shininess);
+		litShader.setMat4("_Model", monkeyTransform.modelMatrix());
+		litShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		litShader.setFloat("_Material.Ka", material.Ka);
+		litShader.setFloat("_Material.Kd", material.Kd);
+		litShader.setFloat("_Material.Ks", material.Ks);
+		litShader.setFloat("_Material.Shininess", material.Shininess);
 
 		monkeyModel.draw();  //Draws monkey model using current shader
 
@@ -150,6 +155,12 @@ int main() {
 		glfwSwapBuffers(window);
 	}
 	printf("Shutting down...");
+}
+
+void RenderScene(ew::Shader shader)
+{
+	//call all relevant drawing functions and set the corresponding model matrices where necessary
+
 }
 
 void drawUI() {
