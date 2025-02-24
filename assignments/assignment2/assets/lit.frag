@@ -1,15 +1,20 @@
 #version 450
 out vec4 FragColor; //The color of this fragment
-in Surface{
+
+in VS_OUT{
 	vec3 WorldPos; //Vertex position in world space
 	vec3 WorldNormal; //Vertex normal in world space
 	vec2 TexCoord;
+	vec4 FragPosLightSpace;
 }fs_in;
 
 uniform sampler2D _MainTex; //2D texture sampler
+uniform sampler2D shadowMap;
+
+uniform vec3 _LightPos;
 uniform vec3 _EyePos;
 //Light pointing straight down
-uniform vec3 _LightDirection = vec3(0.0, -1.0, 0.0);
+//uniform vec3 _LightDirection = vec3(0.0, -1.0, 0.0);
 uniform vec3 _LightColor = vec3(1.0); //White light
 uniform vec3 _AmbientColor = vec3(0.3,0.4,0.46);
 
@@ -19,7 +24,13 @@ struct Material{
 	float Ks; //Specular coefficient (0-1)
 	float Shininess; //Affects size of specular highlight
 };
+
 uniform Material _Material;
+
+float ShadowCalculation(vec4 fragPosLightSpace)
+{
+	
+}
 
 void main(){
 	//Make sure fragment normal is still length 1 after interpolation

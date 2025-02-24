@@ -13,17 +13,15 @@
 #include <ew/transform.h>
 #include <ew/cameraController.h>
 #include <ew/texture.h>
+#include <ew/procGen.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
-void RenderScene(ew::Shader shader);
 
 //Creating a camera for us to view our model
 ew::Camera camera;
-
-ew::Transform monkeyTransform;
 ew::CameraController cameraController;
 
 unsigned int planeVAO;
@@ -48,41 +46,17 @@ int main() {
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//Setting some global OpenGL variables
-	glEnable(GL_CULL_FACE);
-	glCullFace(GL_BACK);  //Back face culling
 	glEnable(GL_DEPTH_TEST);  //Depth testing
-
-	float planeVertices[] = {
-		// positions           // normals        // texcoords
-		 25.0f, -0.5f,  25.0f, 0.0f, 1.0f, 0.0f, 25.0f,  0.0f,
-		-25.0f, -0.5f,  25.0f, 0.0f, 1.0f, 0.0f,  0.0f,  0.0f,
-		-25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f,  0.0f, 25.0f,
-
-		 25.0f, -0.5f,  25.0f, 0.0f, 1.0f, 0.0f, 25.0f,  0.0f,
-		-25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f,  0.0f, 25.0f,
-		 25.0f, -0.5f, -25.0f, 0.0f, 1.0f, 0.0f, 25.0f, 25.0f,
-	};
-
-	//plane VAO
-	unsigned int planeVBO;
-	glGenVertexArrays(1, &planeVAO);
-	glGenBuffers(1, &planeVBO);
-	glBindVertexArray(planeVAO);
-	glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-	glBindVertexArray(0);
 
 	//Making a shader with the shader files in the assets folder
 	ew::Shader litShader = ew::Shader("assets/lit.vert", "assets/lit.frag");
 	ew::Shader depthShader = ew::Shader("assets/depth.vert", "assets/depth.frag");
 	//Loading a 3D model for us to render
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
+	ew::Transform monkeyTransform;
+	ew::Mesh planeMesh(ew::createPlane(8, 8, 64));
+	ew::Transform planeTransform;
+	planeTransform.position = glm::vec3(0, -4.0, 0);
 	//Handles to OpenGL object are unsigned integers
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 	GLuint tileTexture = ew::loadTexture("assets/Tiles.png");
@@ -118,6 +92,10 @@ int main() {
 
 	glm::vec3 lightPos(-2.0f, 4.0f, -1.0f);
 
+	//Orthogragphic projection matrix for the directional light source
+	float near_plane = 1.0f, far_plane = 7.5f;
+	glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 
@@ -126,10 +104,6 @@ int main() {
 		prevFrameTime = time;
 
 		cameraController.move(window, &camera, deltaTime);
-
-		//Orthogragphic projection matrix for the directional light source
-		float near_plane = 1.0f, far_plane = 7.5f;
-		glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
 
 		//Create a view matrix to transform each object so they're visible from the light's pov
 		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -140,30 +114,38 @@ int main() {
 		depthShader.use();
 		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_FRONT);
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tileTexture);
-		RenderScene(depthShader);
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		depthShader.setMat4("model", planeTransform.modelMatrix());
+		planeMesh.draw();
+
+		//Rotate monkey model around Y axis
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+
+		depthShader.setMat4("model", monkeyTransform.modelMatrix());
+		monkeyModel.draw();
 
 		//Reset viewport
 		glViewport(0, 0, screenWidth, screenHeight);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		
 		//RENDER
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		//Clears backbuffer color and depth values
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glCullFace(GL_BACK);
 
-
-		//Rotate model around Y axis
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
-
-		//Bind brick texture to texture unit 0
+		//Binding textures
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, tileTexture);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, brickTexture);
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
 
 		//Set shader uniforms and draw
 		litShader.use();
@@ -184,19 +166,8 @@ int main() {
 
 		glfwSwapBuffers(window);
 	}
-	glDeleteVertexArrays(1, &planeVAO);
-	glDeleteBuffers(1, &planeVBO);
 
 	printf("Shutting down...");
-}
-
-void RenderScene(ew::Shader shader)
-{
-	//call all relevant drawing functions and set the corresponding model matrices where necessary
-	glm::mat4 model = glm::mat4(1.0f);
-	shader.setMat4("model", model);
-	glBindVertexArray(planeVAO);
-	glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
 void drawUI() {
@@ -208,7 +179,7 @@ void drawUI() {
 	if (ImGui::CollapsingHeader("Directional Light"))
 	{
 		if (ImGui::Button("Reset Light")) {
-			//resetCamera(&camera, &cameraController);
+			resetCamera(&camera, &cameraController);
 		}
 		//MAKE VARIABLES FOR DIRECTIONAL LIGHT//
 		//ImGui::SliderFloat("Light    ");
