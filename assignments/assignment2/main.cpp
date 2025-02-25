@@ -19,7 +19,6 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
-void resetLight(glm::vec3* light);
 
 //Creating a camera for us to view our model
 ew::Camera camera;
@@ -36,9 +35,7 @@ float deltaTime;
 //ImGui Stuff
 glm::vec3 light;
 ew::Transform monkeyTransform;
-float minBias;
-float currentBias;
-float maxBias;
+float bias;
 
 struct Material {
 	float Ka = 1.0;
@@ -99,14 +96,12 @@ int main() {
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	light = glm::vec3(-2.0f, 4.0f, -1.0f);//light.x, light.y, light.z);
+	light = glm::vec3(0.25f, 3.0f, -0.5f);
+	bias = 0.005f;
 
 	//Orthogragphic projection matrix for the directional light source
 	float near_plane = 1.0f, far_plane = 10.0f;
 	glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-
-	minBias = 0.005f;
-	maxBias = 0.5f;
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -174,9 +169,7 @@ int main() {
 		litShader.setFloat("_Material.Kd", material.Kd);
 		litShader.setFloat("_Material.Ks", material.Ks);
 		litShader.setFloat("_Material.Shininess", material.Shininess);
-		litShader.setFloat("_MinBias", minBias);
-		litShader.setFloat("_CurrentBias", currentBias);
-		litShader.setFloat("_MaxBias", maxBias);
+		litShader.setFloat("_Bias", bias);
 
 		litShader.setMat4("_Model", planeTransform.modelMatrix());
 		planeMesh.draw();
@@ -202,24 +195,16 @@ void drawUI() {
 	ImGui::Begin("Settings");
 	if (ImGui::CollapsingHeader("Directional Light"))
 	{
-		if (ImGui::Button("Reset Light")) {
-			resetLight(&light);
-		}
 		//MAKE VARIABLES FOR DIRECTIONAL LIGHT//
-		ImGui::SliderFloat("Light X", &light.x, -5.0f, 5.0f);
-		ImGui::SliderFloat("Light Y", &light.y, 0.0f, 8.0f);
-		ImGui::SliderFloat("Light Z", &light.z, -5.0f, 8.0f);
+		ImGui::SliderFloat("Light X", &light.x, -1.0f, 1.0f);
+		ImGui::SliderFloat("Light Y", &light.y, 0.0f, 10.0f);
+		ImGui::SliderFloat("Light Z", &light.z, -1.0f, 1.0f);
 	}
-	ImGui::SliderFloat("Monkey X", &monkeyTransform.position.x, -5.0, 5.0);
-	ImGui::SliderFloat("Monkey Y", &monkeyTransform.position.y, -5.0, 5.0);
-	ImGui::SliderFloat("Monkey Z", &monkeyTransform.position.z, -5.0, 5.0);
+	ImGui::SliderFloat("Monkey X", &monkeyTransform.position.x, -5.0f, 5.0f);
+	ImGui::SliderFloat("Monkey Y", &monkeyTransform.position.y, -5.0f, 5.0f);
+	ImGui::SliderFloat("Monkey Z", &monkeyTransform.position.z, -5.0f, 5.0f);
 
-	ImGui::SliderFloat("Bias", &currentBias, minBias, maxBias);
-	if (ImGui::CollapsingHeader("Bias Params"))
-	{
-		ImGui::SliderFloat("Min Bias", &minBias, 0.0, 1.0);
-		ImGui::SliderFloat("Max Bias", &maxBias, 0.0, 1.0);
-	}
+	ImGui::SliderFloat("Bias", &bias, 0.0f, 0.5f);
 
 	if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
@@ -287,13 +272,6 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 	ImGui_ImplOpenGL3_Init();
 
 	return window;
-}
-
-void resetLight(glm::vec3* light)
-{
-	light->x = -2.0;
-	light->y = 4.0;
-	light->z = -1.0;
 }
 
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
