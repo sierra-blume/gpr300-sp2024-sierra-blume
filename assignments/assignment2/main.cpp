@@ -19,7 +19,7 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
-//void resetLight(Light* light);
+void resetLight(glm::vec3* light);
 
 //Creating a camera for us to view our model
 ew::Camera camera;
@@ -33,18 +33,19 @@ int screenHeight = 720;
 float prevFrameTime;
 float deltaTime;
 
+//ImGui Stuff
+glm::vec3 light;
+ew::Transform monkeyTransform;
+float minBias;
+float currentBias;
+float maxBias;
+
 struct Material {
 	float Ka = 1.0;
 	float Kd = 0.5;
 	float Ks = 0.5;
 	float Shininess = 128;
 }material;
-
-/*struct Light {
-	float x = -2.0f;
-	float y = 4.0f;
-	float z = -1.0f;
-}light;*/
 
 int main() {
 	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
@@ -58,10 +59,11 @@ int main() {
 	ew::Shader depthShader = ew::Shader("assets/depth.vert", "assets/depth.frag");
 	//Loading a 3D model for us to render
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
-	ew::Transform monkeyTransform;
 	ew::Mesh planeMesh(ew::createPlane(5.0f, 5.0f, 10.0f));
 	ew::Transform planeTransform;
 	planeTransform.position = glm::vec3(0, -2.0, 0);
+
+
 	//Handles to OpenGL object are unsigned integers
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 	GLuint tileTexture = ew::loadTexture("assets/Tiles.png");
@@ -83,8 +85,10 @@ int main() {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
 	//Attach the generated depth texture as the framebuffer's depth buffer
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
@@ -95,11 +99,14 @@ int main() {
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	glm::vec3 lightPos(-2.0f, 4.0f, -1.0f);//light.x, light.y, light.z);
+	light = glm::vec3(-2.0f, 4.0f, -1.0f);//light.x, light.y, light.z);
 
 	//Orthogragphic projection matrix for the directional light source
-	float near_plane = 1.0f, far_plane = 7.5f;
+	float near_plane = 1.0f, far_plane = 10.0f;
 	glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+
+	minBias = 0.005f;
+	maxBias = 0.5f;
 
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -111,7 +118,7 @@ int main() {
 		cameraController.move(window, &camera, deltaTime);
 
 		//Create a view matrix to transform each object so they're visible from the light's pov
-		glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::mat4 lightView = glm::lookAt(light, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
@@ -119,11 +126,11 @@ int main() {
 		depthShader.use();
 		depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
 
-		glEnable(GL_CULL_FACE);
-		glCullFace(GL_FRONT);
 		glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 		glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 		glClear(GL_DEPTH_BUFFER_BIT);
+
+		glCullFace(GL_FRONT);
 
 		depthShader.setMat4("model", planeTransform.modelMatrix());
 		planeMesh.draw();
@@ -134,6 +141,8 @@ int main() {
 		depthShader.setMat4("model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();
 
+		glCullFace(GL_BACK);
+
 		//Reset viewport
 		glViewport(0, 0, screenWidth, screenHeight);
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -142,7 +151,6 @@ int main() {
 		glClearColor(0.6f, 0.8f, 0.92f, 1.0f);
 		//Clears backbuffer color and depth values
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glCullFace(GL_BACK);
 
 		//Binding textures
 		glActiveTexture(GL_TEXTURE0);
@@ -155,7 +163,7 @@ int main() {
 		//Set shader uniforms and draw
 		litShader.use();
 		litShader.setVec3("_EyePos", camera.position);
-		litShader.setVec3("_LightPos", lightPos);
+		litShader.setVec3("_LightPos", light);
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 		litShader.setInt("_MainTex", 1);
 		litShader.setInt("_ShadowMap", 2);
@@ -166,6 +174,9 @@ int main() {
 		litShader.setFloat("_Material.Kd", material.Kd);
 		litShader.setFloat("_Material.Ks", material.Ks);
 		litShader.setFloat("_Material.Shininess", material.Shininess);
+		litShader.setFloat("_MinBias", minBias);
+		litShader.setFloat("_CurrentBias", currentBias);
+		litShader.setFloat("_MaxBias", maxBias);
 
 		litShader.setMat4("_Model", planeTransform.modelMatrix());
 		planeMesh.draw();
@@ -192,13 +203,24 @@ void drawUI() {
 	if (ImGui::CollapsingHeader("Directional Light"))
 	{
 		if (ImGui::Button("Reset Light")) {
-			//resetLight(&light);
+			resetLight(&light);
 		}
 		//MAKE VARIABLES FOR DIRECTIONAL LIGHT//
-		/*ImGui::SliderFloat("Light X", &light.x, -180.0f, 180.0f);
-		ImGui::SliderFloat("Light Y", &light.y, -180.0f, 180.0f);
-		ImGui::SliderFloat("Light Z", &light.z, -180.0f, 180.0f);*/
+		ImGui::SliderFloat("Light X", &light.x, -5.0f, 5.0f);
+		ImGui::SliderFloat("Light Y", &light.y, 0.0f, 8.0f);
+		ImGui::SliderFloat("Light Z", &light.z, -5.0f, 8.0f);
 	}
+	ImGui::SliderFloat("Monkey X", &monkeyTransform.position.x, -5.0, 5.0);
+	ImGui::SliderFloat("Monkey Y", &monkeyTransform.position.y, -5.0, 5.0);
+	ImGui::SliderFloat("Monkey Z", &monkeyTransform.position.z, -5.0, 5.0);
+
+	ImGui::SliderFloat("Bias", &currentBias, minBias, maxBias);
+	if (ImGui::CollapsingHeader("Bias Params"))
+	{
+		ImGui::SliderFloat("Min Bias", &minBias, 0.0, 1.0);
+		ImGui::SliderFloat("Max Bias", &maxBias, 0.0, 1.0);
+	}
+
 	if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
 	}
@@ -267,12 +289,12 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 	return window;
 }
 
-/*void resetLight(Light* light)
+void resetLight(glm::vec3* light)
 {
-	light->x = -2.0f;
-	light->y = 4.0f;
-	light->z = -1.0f;
-}*/
+	light->x = -2.0;
+	light->y = 4.0;
+	light->z = -1.0;
+}
 
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {

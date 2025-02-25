@@ -11,6 +11,10 @@ in VS_OUT{
 uniform sampler2D _MainTex; //2D texture sampler
 uniform sampler2D _ShadowMap;
 
+uniform float _MinBias;
+uniform float _CurrentBias;
+uniform float _MaxBias;
+
 uniform vec3 _LightPos;
 uniform vec3 _EyePos;
 //Light pointing straight down
@@ -27,8 +31,10 @@ struct Material{
 
 uniform Material _Material;
 
-float ShadowCalculation(vec4 fragPosLightSpace)
+float ShadowCalculation(vec4 fragPosLightSpace, float bias)
 {
+	float shadow = 0.0f;
+	vec2 texelSize = 1.0f / textureSize(_ShadowMap, 0);
 	//Perform perspective divide
 	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
 	//Transform the NDC coordinates to the range [0,1]
@@ -37,8 +43,19 @@ float ShadowCalculation(vec4 fragPosLightSpace)
 	float closestDepth = texture(_ShadowMap, projCoords.xy).r;
 	//Get depth of current fragment from light's perspective
 	float currentDepth = projCoords.z;
-	//Check whether current frag pos is in shadow
-	float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
+
+	for(int x = -1; x <= 1; ++x)
+	{
+		for(int y = -1; y <= 1; ++y)
+		{
+			float pcfDepth = texture(_ShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+			shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+		}
+	}
+	shadow /= 9.0;
+
+	if(projCoords.z > 1.0)
+		shadow = 0.0;
 
 	return shadow;
 }
@@ -62,7 +79,8 @@ void main(){
 	lightColor += _AmbientColor * _Material.Ka;*/
 
 	//Calculate shadow
-	float shadow = ShadowCalculation(fs_in.FragPosLightSpace);
+	float bias = max(0.05 * (1.0 - dot(normal, toLight)), 0.005);
+	float shadow = ShadowCalculation(fs_in.FragPosLightSpace, bias);
 	vec3 lighting = ((_AmbientColor * _Material.Ka) + (1.0 - shadow) * (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor)) * objectColor;
 
 	FragColor = vec4(lighting, 1.0);
