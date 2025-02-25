@@ -9,7 +9,7 @@ in VS_OUT{
 }fs_in;
 
 uniform sampler2D _MainTex; //2D texture sampler
-uniform sampler2D shadowMap;
+uniform sampler2D _ShadowMap;
 
 uniform vec3 _LightPos;
 uniform vec3 _EyePos;
@@ -29,24 +29,41 @@ uniform Material _Material;
 
 float ShadowCalculation(vec4 fragPosLightSpace)
 {
-	
+	//Perform perspective divide
+	vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+	//Transform the NDC coordinates to the range [0,1]
+	projCoords = projCoords * 0.5 + 0.5;
+	//Get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
+	float closestDepth = texture(_ShadowMap, projCoords.xy).r;
+	//Get depth of current fragment from light's perspective
+	float currentDepth = projCoords.z;
+	//Check whether current frag pos is in shadow
+	float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
+
+	return shadow;
 }
 
 void main(){
+	vec3 objectColor = texture(_MainTex, fs_in.TexCoord).rgb;
 	//Make sure fragment normal is still length 1 after interpolation
 	vec3 normal = normalize(fs_in.WorldNormal);
 	//Light pointing straight down
-	vec3 toLight = -_LightDirection;
+	vec3 toLight = normalize(_LightPos - fs_in.WorldPos);
 	float diffuseFactor = 0.5 * max(dot(normal, toLight), 0.0);
 	//Direction towards eye
 	vec3 toEye = normalize(_EyePos - fs_in.WorldPos);
 	//Blinn-phong uses half angle
-	vec3 h = normalize(toLight + toEye);
-	float specularFactor = pow(max(dot(normal, h), 0.0), _Material.Shininess);
-	//Combination of specular and diffuse reflection
+	vec3 halfwayDir = normalize(toLight + toEye);
+	float specularFactor = pow(max(dot(normal, halfwayDir), 0.0), _Material.Shininess);
+
+	/*//Combination of specular and diffuse reflection
 	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _LightColor;
 	//Add some ambient light
-	lightColor += _AmbientColor * _Material.Ka;
-	vec3 objectColor = texture(_MainTex, fs_in.TexCoord).rgb;
-	FragColor = vec4(objectColor * lightColor, 1.0);
+	lightColor += _AmbientColor * _Material.Ka;*/
+
+	//Calculate shadow
+	float shadow = ShadowCalculation(fs_in.FragPosLightSpace);
+	vec3 lighting = ((_AmbientColor * _Material.Ka) + (1.0 - shadow) * (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor)) * objectColor;
+
+	FragColor = vec4(lighting, 1.0);
 }

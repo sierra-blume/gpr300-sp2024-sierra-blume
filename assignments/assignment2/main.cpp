@@ -19,12 +19,11 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
+//void resetLight(Light* light);
 
 //Creating a camera for us to view our model
 ew::Camera camera;
 ew::CameraController cameraController;
-
-unsigned int planeVAO;
 
 unsigned int depthMap;
 
@@ -41,6 +40,12 @@ struct Material {
 	float Shininess = 128;
 }material;
 
+/*struct Light {
+	float x = -2.0f;
+	float y = 4.0f;
+	float z = -1.0f;
+}light;*/
+
 int main() {
 	GLFWwindow* window = initWindow("Assignment 2", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
@@ -54,9 +59,9 @@ int main() {
 	//Loading a 3D model for us to render
 	ew::Model monkeyModel = ew::Model("assets/suzanne.obj");
 	ew::Transform monkeyTransform;
-	ew::Mesh planeMesh(ew::createPlane(8, 8, 64));
+	ew::Mesh planeMesh(ew::createPlane(5.0f, 5.0f, 10.0f));
 	ew::Transform planeTransform;
-	planeTransform.position = glm::vec3(0, -4.0, 0);
+	planeTransform.position = glm::vec3(0, -2.0, 0);
 	//Handles to OpenGL object are unsigned integers
 	GLuint brickTexture = ew::loadTexture("assets/brick_color.jpg");
 	GLuint tileTexture = ew::loadTexture("assets/Tiles.png");
@@ -90,7 +95,7 @@ int main() {
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	glm::vec3 lightPos(-2.0f, 4.0f, -1.0f);
+	glm::vec3 lightPos(-2.0f, 4.0f, -1.0f);//light.x, light.y, light.z);
 
 	//Orthogragphic projection matrix for the directional light source
 	float near_plane = 1.0f, far_plane = 7.5f;
@@ -150,16 +155,24 @@ int main() {
 		//Set shader uniforms and draw
 		litShader.use();
 		litShader.setVec3("_EyePos", camera.position);
+		litShader.setVec3("_LightPos", lightPos);
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 		litShader.setInt("_MainTex", 1);
+		litShader.setInt("_ShadowMap", 2);
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
-		litShader.setMat4("_Model", monkeyTransform.modelMatrix());
 		litShader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
+		litShader.setMat4("_LightSpaceMatrix", lightSpaceMatrix);
 		litShader.setFloat("_Material.Ka", material.Ka);
 		litShader.setFloat("_Material.Kd", material.Kd);
 		litShader.setFloat("_Material.Ks", material.Ks);
 		litShader.setFloat("_Material.Shininess", material.Shininess);
 
+		litShader.setMat4("_Model", planeTransform.modelMatrix());
+		planeMesh.draw();
+
+		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+
+		litShader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();  //Draws monkey model using current shader
 
 		drawUI();
@@ -179,10 +192,12 @@ void drawUI() {
 	if (ImGui::CollapsingHeader("Directional Light"))
 	{
 		if (ImGui::Button("Reset Light")) {
-			resetCamera(&camera, &cameraController);
+			//resetLight(&light);
 		}
 		//MAKE VARIABLES FOR DIRECTIONAL LIGHT//
-		//ImGui::SliderFloat("Light    ");
+		/*ImGui::SliderFloat("Light X", &light.x, -180.0f, 180.0f);
+		ImGui::SliderFloat("Light Y", &light.y, -180.0f, 180.0f);
+		ImGui::SliderFloat("Light Z", &light.z, -180.0f, 180.0f);*/
 	}
 	if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
@@ -251,6 +266,13 @@ GLFWwindow* initWindow(const char* title, int width, int height) {
 
 	return window;
 }
+
+/*void resetLight(Light* light)
+{
+	light->x = -2.0f;
+	light->y = 4.0f;
+	light->z = -1.0f;
+}*/
 
 void resetCamera(ew::Camera* camera, ew::CameraController* controller)
 {
