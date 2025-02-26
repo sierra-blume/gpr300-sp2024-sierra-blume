@@ -16,7 +16,6 @@ uniform float _Bias;
 uniform vec3 _LightPos;
 uniform vec3 _EyePos;
 //Light pointing straight down
-//uniform vec3 _LightDirection = vec3(0.0, -1.0, 0.0);
 uniform vec3 _LightColor = vec3(1.0); //White light
 uniform vec3 _AmbientColor = vec3(0.3,0.4,0.46);
 
@@ -71,13 +70,7 @@ void main(){
 	vec3 halfwayDir = normalize(toLight + toEye);
 	float specularFactor = pow(max(dot(normal, halfwayDir), 0.0), _Material.Shininess);
 
-	/*//Combination of specular and diffuse reflection
-	vec3 lightColor = (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor) * _LightColor;
-	//Add some ambient light
-	lightColor += _AmbientColor * _Material.Ka;*/
-
 	//Calculate shadow
-	//float bias = max(0.05 * (1.0 - dot(normal, toLight)), 0.005);
 	float shadow = ShadowCalculation(fs_in.FragPosLightSpace);
 	vec3 lighting = ((_AmbientColor * _Material.Ka) + (1.0 - shadow) * (_Material.Kd * diffuseFactor + _Material.Ks * specularFactor)) * objectColor;
 
