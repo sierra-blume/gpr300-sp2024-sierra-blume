@@ -14,6 +14,7 @@
 #include <ew/cameraController.h>
 #include <ew/texture.h>
 #include <ew/procGen.h>
+#include <slib/animation.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
@@ -40,7 +41,7 @@ struct Material {
 }material;
 
 int main() {
-	GLFWwindow* window = initWindow("Assignment 0", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 4", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//Making a shader with the shader files in the assets folder
@@ -112,6 +113,8 @@ void drawUI() {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
+
+
 
 	ImGui::Begin("Settings");
 	if (ImGui::Button("Reset Camera")) {

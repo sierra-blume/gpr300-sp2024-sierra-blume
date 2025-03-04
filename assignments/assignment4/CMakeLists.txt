@@ -15,7 +15,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/assets/
 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/)
 
 install(FILES ${ASSIGNMENT4_INC} DESTINATION include/assignment0)
-add_executable(assignment4 ${ASSIGNMENT4_SRC} ${ASSIGNMENT4_INC} "assets/Animator.h" "assets/Animator.cpp" "assets/AnimationClip.h" "assets/AnimationClip.cpp" "assets/Vec3Key.h")
+add_executable(assignment4 ${ASSIGNMENT4_SRC} ${ASSIGNMENT4_INC} "assets/Animator.h" "assets/Animator.cpp" "assets/.h"  "assets/Vec3Key.h")
 target_link_libraries(assignment4 PUBLIC core IMGUI assimp)
 target_include_directories(assignment4 PUBLIC ${CORE_INC_DIR} ${stb_INCLUDE_DIR})
 
