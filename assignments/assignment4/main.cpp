@@ -19,6 +19,7 @@
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
 void drawUI();
+void drawAnimatorUI();
 void resetCamera(ew::Camera* camera, ew::CameraController* controller);
 
 //Creating a camera for us to view our model
@@ -26,6 +27,8 @@ ew::Camera camera;
 
 ew::Transform monkeyTransform;
 ew::CameraController cameraController;
+
+slib::Animator animator;
 
 //Global state
 int screenWidth = 1080;
@@ -59,6 +62,14 @@ int main() {
 	camera.aspectRatio = (float)screenWidth / screenHeight;  //Should be updated every frame or in framebufferSizeCallback to keep the aspect ratio correct after resizing the window
 	camera.fov = 60.0f;  //Vertical field of view, in degrees
 
+	animator.clip = new slib::AnimationClip();
+	animator.clip->duration = 5;
+	animator.isPlaying = true;
+	animator.isLooping = true;
+	//animator.clip->positionKeys.push_back(slib::Vec3Key(0, glm::vec3(0)));
+	//animator.clip->positionKeys.push_back(slib::Vec3Key(2, glm::vec3(1,1,0)));
+	//animator.clip->positionKeys.push_back(slib::Vec3Key(5, glm::vec3(25, 5, 0)));
+
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);  //Back face culling
@@ -72,6 +83,11 @@ int main() {
 		prevFrameTime = time;
 
 		cameraController.move(window, &camera, deltaTime);
+
+		animator.Update(deltaTime);
+		monkeyTransform.position = animator.GetValue(animator.clip->positionKeys, glm::vec3(0));
+		monkeyTransform.rotation = animator.GetValue(animator.clip->rotationKeys, glm::vec3(0)) / 180.0f * 3.141592653589793238462643383279502884197169399375105820974944f;
+		monkeyTransform.scale = animator.GetValue(animator.clip->scaleKeys, glm::vec3(1));
 
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
@@ -87,7 +103,7 @@ int main() {
 		//Make "_MainTex" sampler2D sample from the 2D texture bound to unit 0
 		shader.setInt("_MainTex", 0);
 		//transform.modelMatrix() combines translation, rotation, and scale into a 4x4 model matrix
-		shader.setMat4("_Model", monkeyTransform.modelMatrix());
+		//shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		shader.setMat4("_ViewProjection", camera.projectionMatrix() * camera.viewMatrix());
 		shader.setFloat("_Material.Ka", material.Ka);
 		shader.setFloat("_Material.Kd", material.Kd);
@@ -97,7 +113,7 @@ int main() {
 		shader.setMat4("_Model", planeTransform.modelMatrix());
 		planeMesh.draw();
 
-		monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
+		//monkeyTransform.rotation = glm::rotate(monkeyTransform.rotation, deltaTime, glm::vec3(0.0, 1.0, 0.0));
 
 		shader.setMat4("_Model", monkeyTransform.modelMatrix());
 		monkeyModel.draw();  //Draws monkey model using current shader
@@ -114,9 +130,8 @@ void drawUI() {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
 
-
-
 	ImGui::Begin("Settings");
+
 	if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
 	}
@@ -127,9 +142,124 @@ void drawUI() {
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
 	}
 	ImGui::End();
+	drawAnimatorUI();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void drawAnimatorUI()
+{
+	const char* easingNames[4] = { "Lerp", "Easing In Out Sine", "Easing In Out Quart", "Easing In Out Back" };
+
+	ImGui::Begin("Animator Settings");
+	{
+		ImGui::Checkbox("Playing", &animator.isPlaying);
+		ImGui::Checkbox("Looping", &animator.isLooping);
+
+		ImGui::SliderFloat("Playback Speed", &animator.playbackSpeed, -5.0f, 5.0f);
+		ImGui::SliderFloat("Playback Time", &animator.playbackTime, 0.0f, animator.clip->duration);
+		ImGui::DragFloat("Duration", &animator.clip->duration);
+
+		int pushID = 0;
+		if (ImGui::CollapsingHeader("Position Keys"))
+		{
+			for (int i = 0; i < animator.clip->positionKeys.size(); i++)
+			{
+				ImGui::PushID(pushID++);
+				ImGui::SliderFloat("Time", &animator.clip->positionKeys[i].mTime, 0.0f, animator.clip->duration);
+				ImGui::DragFloat3("Value", &animator.clip->positionKeys[i].mValue.x);
+				ImGui::Combo("Interpolation Method", &animator.clip->positionKeys[i].mMethod, easingNames, 4);
+				ImGui::PopID();
+			}
+			ImGui::PushID(pushID++);
+			if (ImGui::Button("Add Keyframe"))
+			{
+				if (animator.clip->positionKeys.size() == 0)
+				{
+					animator.clip->positionKeys.push_back(slib::Vec3Key(0, glm::vec3(0)));
+				}
+				else
+				{
+					animator.clip->positionKeys.push_back(slib::Vec3Key(animator.clip->duration, glm::vec3(0)));
+				}
+			}
+			if (ImGui::Button("Remove Keyframe"))
+			{
+				if (animator.clip->positionKeys.size() == 0) return;
+				else
+				{
+					animator.clip->positionKeys.pop_back();
+				}
+			}
+			ImGui::PopID();
+		}
+		if (ImGui::CollapsingHeader("Rotation Keys"))
+		{
+			for (int i = 0; i < animator.clip->rotationKeys.size(); i++)
+			{
+				ImGui::PushID(pushID++);
+				ImGui::SliderFloat("Time", &animator.clip->rotationKeys[i].mTime, 0.0f, animator.clip->duration);
+				ImGui::DragFloat3("Value", &animator.clip->rotationKeys[i].mValue.x);
+				ImGui::Combo("Interpolation Method", &animator.clip->rotationKeys[i].mMethod, easingNames, 4);
+				ImGui::PopID();
+			}
+			ImGui::PushID(pushID++);
+			if (ImGui::Button("Add Keyframe"))
+			{
+				if (animator.clip->rotationKeys.size() == 0)
+				{
+					animator.clip->rotationKeys.push_back(slib::Vec3Key(0, glm::vec3(0)));
+				}
+				else
+				{
+					animator.clip->rotationKeys.push_back(slib::Vec3Key(animator.clip->duration, glm::vec3(0)));
+				}
+			}
+			if (ImGui::Button("Remove Keyframe"))
+			{
+				if (animator.clip->rotationKeys.size() == 0) return;
+				else
+				{
+					animator.clip->rotationKeys.pop_back();
+				}
+			}
+			ImGui::PopID();
+		}
+		if (ImGui::CollapsingHeader("Scale Keys"))
+		{
+			for (int i = 0; i < animator.clip->scaleKeys.size(); i++)
+			{
+				ImGui::PushID(pushID++);
+				ImGui::SliderFloat("Time", &animator.clip->scaleKeys[i].mTime, 0.0f, animator.clip->duration);
+				ImGui::DragFloat3("Value", &animator.clip->scaleKeys[i].mValue.x);
+				ImGui::Combo("Interpolation Method", &animator.clip->scaleKeys[i].mMethod, easingNames, 4);
+				ImGui::PopID();
+			}
+			ImGui::PushID(pushID++);
+			if (ImGui::Button("Add Keyframe"))
+			{
+				if (animator.clip->scaleKeys.size() == 0)
+				{
+					animator.clip->scaleKeys.push_back(slib::Vec3Key(0, glm::vec3(1)));
+				}
+				else
+				{
+					animator.clip->scaleKeys.push_back(slib::Vec3Key(animator.clip->duration, glm::vec3(1)));
+				}
+			}
+			if (ImGui::Button("Remove Keyframe"))
+			{
+				if (animator.clip->scaleKeys.size() == 0) return;
+				else
+				{
+					animator.clip->scaleKeys.pop_back();
+				}
+			}
+			ImGui::PopID();
+		}
+	}
+	ImGui::End();
 }
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
