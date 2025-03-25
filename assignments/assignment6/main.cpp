@@ -15,6 +15,7 @@
 #include <ew/texture.h>
 #include <ew/procGen.h>
 #include <slib/animation.h>
+#include <slib/joint.h>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
 GLFWwindow* initWindow(const char* title, int width, int height);
@@ -44,7 +45,7 @@ struct Material {
 }material;
 
 int main() {
-	GLFWwindow* window = initWindow("Assignment 4", screenWidth, screenHeight);
+	GLFWwindow* window = initWindow("Assignment 6", screenWidth, screenHeight);
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	//Making a shader with the shader files in the assets folder
@@ -66,9 +67,6 @@ int main() {
 	animator.clip->duration = 5;
 	animator.isPlaying = true;
 	animator.isLooping = true;
-	//animator.clip->positionKeys.push_back(slib::Vec3Key(0, glm::vec3(0)));
-	//animator.clip->positionKeys.push_back(slib::Vec3Key(2, glm::vec3(1,1,0)));
-	//animator.clip->positionKeys.push_back(slib::Vec3Key(5, glm::vec3(25, 5, 0)));
 
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);
@@ -130,9 +128,9 @@ void drawUI() {
 	ImGui_ImplOpenGL3_NewFrame();
 	ImGui::NewFrame();
 
-	ImGui::Begin("Settings");
+	ImGui::Begin("Hierarchy");
 
-	if (ImGui::Button("Reset Camera")) {
+	/*if (ImGui::Button("Reset Camera")) {
 		resetCamera(&camera, &cameraController);
 	}
 	if (ImGui::CollapsingHeader("Material")) {
@@ -140,9 +138,9 @@ void drawUI() {
 		ImGui::SliderFloat("DiffuseK", &material.Kd, 0.0f, 1.0f);
 		ImGui::SliderFloat("SpecularK", &material.Ks, 0.0f, 1.0f);
 		ImGui::SliderFloat("Shininess", &material.Shininess, 2.0f, 1024.0f);
-	}
+	}*/
 	ImGui::End();
-	drawAnimatorUI();
+	//drawAnimatorUI();
 
 	ImGui::Render();
 	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

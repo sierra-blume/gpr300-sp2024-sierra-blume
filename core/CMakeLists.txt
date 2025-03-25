@@ -15,7 +15,7 @@ set(CORE_INC_DIR
  CACHE PATH "CORE INCLUDE SOURCE PATH"
 )
 
-add_library(core STATIC ${CORE_SRC} ${CORE_INC} "slib/animation.h")
+add_library(core STATIC ${CORE_SRC} ${CORE_INC})
 
 find_package(OpenGL REQUIRED)
 
