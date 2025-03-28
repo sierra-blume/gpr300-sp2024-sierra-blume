@@ -31,6 +31,8 @@ ew::CameraController cameraController;
 
 slib::Animator animator;
 
+slib::Joint torso;
+
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -67,6 +69,8 @@ int main() {
 	animator.clip->duration = 5;
 	animator.isPlaying = true;
 	animator.isLooping = true;
+
+	
 
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);
