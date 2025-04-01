@@ -31,8 +31,6 @@ ew::CameraController cameraController;
 
 slib::Animator animator;
 
-slib::Joint torso;
-
 //Global state
 int screenWidth = 1080;
 int screenHeight = 720;
@@ -70,6 +68,7 @@ int main() {
 	animator.isPlaying = true;
 	animator.isLooping = true;
 
+	slib::Joint torso;
 	
 
 	//Setting some global OpenGL variables

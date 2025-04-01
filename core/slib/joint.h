@@ -14,9 +14,23 @@ namespace slib
 		std::vector<Joint> children;
 		unsigned int numChildren;
 
+		Joint() {
+			localTransform = glm::mat4(0);
+			globalTransform = glm::mat4(0);
+			numChildren = 0;
+		}
+
+		Joint addChild()
+		{
+			Joint add = Joint();
+			add.parent = this;
+			numChildren++;
+			children.push_back(add);
+		}
+
 		void solveFK(Joint* joint)
 		{
-			if (joint->parent == NULL)
+			if (joint->parent == nullptr)
 			{
 				joint->globalTransform = joint->localTransform;
 			}
