@@ -30,6 +30,7 @@ ew::Transform monkeyTransform;
 ew::CameraController cameraController;
 
 slib::Animator animator;
+slib::Joint root;
 
 //Global state
 int screenWidth = 1080;
@@ -68,8 +69,40 @@ int main() {
 	animator.isPlaying = true;
 	animator.isLooping = true;
 
-	slib::Joint torso;
+	//Building the skeleton
+	//Root node
+	root.children = std::vector<slib::Joint*>();
+	root.localPose.translation = glm::vec3(0, 2.0f, 0);
+	root.localPose.scale = glm::vec3(1.5f);
+
+	//Head
+	slib::Joint head;
+	head.parent = &root;
+	head.localPose.translation = glm::vec3(0, 2.5f, 0);
+	head.localPose.scale = glm::vec3(0.6f);
+	root.children.push_back(&head);
+
+	//Right shoulder
+
+
+	//Right arm
 	
+	
+	//Right elbow
+
+
+	//Right wrist
+
+
+	//Left arm
+
+
+	//Left elbow
+
+
+	//Left wrist
+
+
 
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);

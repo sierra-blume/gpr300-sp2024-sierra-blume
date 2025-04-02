@@ -6,41 +6,45 @@
 
 namespace slib
 {
+	class JointPose {
+	public:
+		glm::vec3 translation;
+		glm::quat rotation;
+		glm::vec3 scale;
+
+		JointPose() : rotation(glm::quat(1, 0, 0, 0)), translation(0.0f), scale(1.0f) {}
+	};
+
 	class Joint {
 	public:
-		glm::mat4 localTransform;
-		glm::mat4 globalTransform;
+		JointPose localPose;
+		glm::mat4 globalPose;
 		Joint* parent;
-		std::vector<Joint> children;
+		std::vector<Joint*> children;
 		unsigned int numChildren;
-
-		Joint() {
-			localTransform = glm::mat4(0);
-			globalTransform = glm::mat4(0);
-			numChildren = 0;
-		}
-
-		Joint addChild()
-		{
-			Joint add = Joint();
-			add.parent = this;
-			numChildren++;
-			children.push_back(add);
-		}
 
 		void solveFK(Joint* joint)
 		{
 			if (joint->parent == nullptr)
 			{
-				joint->globalTransform = joint->localTransform;
+				ew::Transform globalPose;
+				globalPose.position = joint->localPose.translation;
+				globalPose.rotation = joint->localPose.rotation;
+				globalPose.scale = joint->localPose.scale;
+
+				joint->globalPose = globalPose.modelMatrix();
 			}
 			else
 			{
-				joint->globalTransform = joint->parent->globalTransform * joint->localTransform;
+				ew::Transform localTransform;
+				localTransform.position = joint->localPose.translation;
+				localTransform.rotation = joint->localPose.rotation;
+				localTransform.scale = joint->localPose.scale;
+				joint->globalPose = joint->parent->globalPose * localTransform.modelMatrix();
 			}
-			for (Joint child : children)
+			for (int i = 0; i < joint->children.size(); i++)
 			{
-				solveFK(&child);
+				solveFK(joint->children[i]);
 			}
 		}
 	};
