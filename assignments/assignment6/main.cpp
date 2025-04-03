@@ -73,36 +73,60 @@ int main() {
 	//Root node
 	root.children = std::vector<slib::Joint*>();
 	root.localPose.translation = glm::vec3(0, 2.0f, 0);
-	root.localPose.scale = glm::vec3(1.5f);
+	root.localPose.scale = glm::vec3(2.0f);
 
 	//Head
 	slib::Joint head;
 	head.parent = &root;
-	head.localPose.translation = glm::vec3(0, 2.5f, 0);
-	head.localPose.scale = glm::vec3(0.6f);
+	head.localPose.translation = glm::vec3(0, 2.75f, 0);
+	head.localPose.scale = glm::vec3(1.5f);
 	root.children.push_back(&head);
 
 	//Right shoulder
+	slib::Joint rShoulder;
+	rShoulder.parent = &root;
+	rShoulder.children = std::vector<slib::Joint*>();
+	rShoulder.localPose.translation = glm::vec3(0.75f, 2.0f, 0);
+	rShoulder.localPose.scale = glm::vec3(1.5f);
+	root.children.push_back(&rShoulder);
 
-
-	//Right arm
-	
-	
 	//Right elbow
-
+	slib::Joint rElbow;
+	rElbow.parent = &rShoulder;
+	rElbow.children = std::vector<slib::Joint*>();
+	rElbow.localPose.translation = glm::vec3(1.25f, 2.0f, 0);
+	rElbow.localPose.scale = glm::vec3(1.0f);
+	rShoulder.children.push_back(&rElbow);
 
 	//Right wrist
+	slib::Joint rWrist;
+	rWrist.parent = &rElbow;
+	rWrist.localPose.translation = glm::vec3(1.5f, 2.0f, 0);
+	rWrist.localPose.scale = glm::vec3(0.5f);
+	rElbow.children.push_back(&rWrist);
 
-
-	//Left arm
-
+	//Left shoulder
+	slib::Joint lShoulder;
+	lShoulder.parent = &root;
+	lShoulder.children = std::vector<slib::Joint*>();
+	lShoulder.localPose.translation = glm::vec3(-0.75f, 2.0f, 0);
+	lShoulder.localPose.scale = glm::vec3(1.5f);
+	root.children.push_back(&lShoulder);
 
 	//Left elbow
-
+	slib::Joint lElbow;
+	lElbow.parent = &lShoulder;
+	lElbow.children = std::vector<slib::Joint*>();
+	lElbow.localPose.translation = glm::vec3(-1.25f, 2.0f, 0);
+	lElbow.localPose.scale = glm::vec3(1.0f);
+	lShoulder.children.push_back(&lElbow);
 
 	//Left wrist
-
-
+	slib::Joint lWrist;
+	lWrist.parent = &lElbow;
+	lWrist.localPose.translation = glm::vec3(-1.5f, 2.0f, 0);
+	lWrist.localPose.scale = glm::vec3(0.5f);
+	lElbow.children.push_back(&lWrist);
 
 	//Setting some global OpenGL variables
 	glEnable(GL_CULL_FACE);
@@ -118,10 +142,10 @@ int main() {
 
 		cameraController.move(window, &camera, deltaTime);
 
-		animator.Update(deltaTime);
+		/*animator.Update(deltaTime);
 		monkeyTransform.position = animator.GetValue(animator.clip->positionKeys, glm::vec3(0));
 		monkeyTransform.rotation = animator.GetValue(animator.clip->rotationKeys, glm::vec3(0)) / 180.0f * 3.141592653589793238462643383279502884197169399375105820974944f;
-		monkeyTransform.scale = animator.GetValue(animator.clip->scaleKeys, glm::vec3(1));
+		monkeyTransform.scale = animator.GetValue(animator.clip->scaleKeys, glm::vec3(1));*/
 
 		//RENDER
 		glClearColor(0.6f,0.8f,0.92f,1.0f);
